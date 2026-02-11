@@ -1,0 +1,325 @@
+//
+//  KanjiGridView.swift
+//  Kanji Champion
+//
+
+import SwiftUI
+
+struct KanjiItem: Identifiable {
+    let id = UUID()
+    let character: String
+    let level: JLPTLevel
+    let meaning: String
+    let isLocked: Bool
+}
+
+struct KanjiGridView: View {
+    @EnvironmentObject var appSettings: AppSettings
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Binding var currentView: String
+
+    private var isRegularWidth: Bool {
+        horizontalSizeClass == .regular
+    }
+
+    @State private var selectedKanji: KanjiCharacter?
+    @State private var n5Kanji: [KanjiItem] = []
+    @State private var n4Kanji: [KanjiItem] = []
+    @State private var n3Kanji: [KanjiItem] = []
+    @State private var n2Kanji: [KanjiItem] = []
+    @State private var n1Kanji: [KanjiItem] = []
+    @State private var searchText: String = ""
+
+    // Cached filtered arrays - updated only when searchText changes
+    @State private var filteredN5Kanji: [KanjiItem] = []
+    @State private var filteredN4Kanji: [KanjiItem] = []
+    @State private var filteredN3Kanji: [KanjiItem] = []
+    @State private var filteredN2Kanji: [KanjiItem] = []
+    @State private var filteredN1Kanji: [KanjiItem] = []
+
+    @FocusState private var searchFieldFocused: Bool
+
+    var body: some View {
+        ZStack {
+            (appSettings.isDarkMode ? Color.backgroundDark : Color.backgroundLight)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Header with title
+                        Text("Library")
+                            .font(.system(size: isRegularWidth ? 22 : 18, weight: .bold))
+                            .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 16)
+                            .padding(.bottom, 20)
+
+                        // Search Bar
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.gray)
+                                .font(.system(size: isRegularWidth ? 18 : 16))
+
+                            TextField("Search Meaning", text: $searchText)
+                                .font(.system(size: isRegularWidth ? 18 : 16))
+                                .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                                .focused($searchFieldFocused)
+                                .onChange(of: searchText) { oldValue, newValue in
+                                    updateFilteredKanji()
+                                }
+
+                            if !searchText.isEmpty {
+                                Button(action: {
+                                    searchText = ""
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.gray)
+                                        .font(.system(size: 16))
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(appSettings.isDarkMode ? Color.woodDark.opacity(0.3) : Color.gray.opacity(0.1))
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 20)
+
+                    VStack(alignment: .leading, spacing: 20) {
+                        JPLTSectionView(
+                            title: "JLPT N5",
+                            kanji: filteredN5Kanji,
+                            isDarkMode: appSettings.isDarkMode,
+                            isRegularWidth: horizontalSizeClass == .regular,
+                            onKanjiTap: handleKanjiTap
+                        )
+
+                        JPLTSectionView(
+                            title: "JLPT N4",
+                            kanji: filteredN4Kanji,
+                            isDarkMode: appSettings.isDarkMode,
+                            isRegularWidth: horizontalSizeClass == .regular,
+                            onKanjiTap: handleKanjiTap
+                        )
+
+                        JPLTSectionView(
+                            title: "JLPT N3",
+                            kanji: filteredN3Kanji,
+                            isDarkMode: appSettings.isDarkMode,
+                            isRegularWidth: horizontalSizeClass == .regular,
+                            onKanjiTap: handleKanjiTap
+                        )
+
+                        JPLTSectionView(
+                            title: "JLPT N2",
+                            kanji: filteredN2Kanji,
+                            isDarkMode: appSettings.isDarkMode,
+                            isRegularWidth: horizontalSizeClass == .regular,
+                            onKanjiTap: handleKanjiTap
+                        )
+
+                        JPLTSectionView(
+                            title: "JLPT N1",
+                            kanji: filteredN1Kanji,
+                            isDarkMode: appSettings.isDarkMode,
+                            isRegularWidth: horizontalSizeClass == .regular,
+                            onKanjiTap: handleKanjiTap
+                        )
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 40)
+                    }
+                }
+            }
+
+            // Absolutely positioned back button
+            VStack {
+                HStack {
+                    Button(action: {
+                        currentView = "home"
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: isRegularWidth ? 20 : 16, weight: .medium))
+
+                            Text("Back")
+                                .font(.system(size: isRegularWidth ? 20 : 17))
+                        }
+                        .foregroundColor(.primaryRed)
+                        .padding(.horizontal, isRegularWidth ? 16 : 12)
+                        .padding(.vertical, isRegularWidth ? 10 : 8)
+                        .background(
+                            Capsule()
+                                .fill(appSettings.isDarkMode ? Color.backgroundDark : Color.backgroundLight)
+                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        )
+                    }
+                    .padding(.leading, 16)
+                    .padding(.top, 16)
+
+                    Spacer()
+                }
+
+                Spacer()
+            }
+            .zIndex(2)
+
+            // Navigation overlay for detail view
+            if let kanji = selectedKanji {
+                KanjiDetailView(currentView: $currentView, kanji: kanji, selectedKanji: $selectedKanji)
+                    .transition(.move(edge: .trailing))
+                    .zIndex(3)
+            }
+        }
+        .onAppear {
+            loadKanjiData()
+        }
+    }
+
+    private func filterKanji(_ kanji: [KanjiItem]) -> [KanjiItem] {
+        guard !searchText.isEmpty else { return kanji }
+
+        // Fast filtering using meaning stored in KanjiItem (no database lookup needed)
+        return kanji.filter { item in
+            item.meaning.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private func updateFilteredKanji() {
+        filteredN5Kanji = filterKanji(n5Kanji)
+        filteredN4Kanji = filterKanji(n4Kanji)
+        filteredN3Kanji = filterKanji(n3Kanji)
+        filteredN2Kanji = filterKanji(n2Kanji)
+        filteredN1Kanji = filterKanji(n1Kanji)
+    }
+
+    private func loadKanjiData() {
+        let database = KanjiDatabase.shared
+        let hasPremium = appSettings.hasActivePremium
+
+        // Load N5 kanji
+        let n5Array = database.allKanji.filter { $0.level == .n5 }
+        n5Kanji = n5Array.enumerated().map { index, kanji in
+            KanjiItem(character: kanji.character, level: kanji.level, meaning: kanji.meaning, isLocked: !hasPremium && index >= 25)
+        }
+
+        // Load N4 kanji
+        let n4Array = database.allKanji.filter { $0.level == .n4 }
+        n4Kanji = n4Array.enumerated().map { index, kanji in
+            KanjiItem(character: kanji.character, level: kanji.level, meaning: kanji.meaning, isLocked: !hasPremium && index >= 25)
+        }
+
+        // Load N3 kanji
+        let n3Array = database.allKanji.filter { $0.level == .n3 }
+        n3Kanji = n3Array.enumerated().map { index, kanji in
+            KanjiItem(character: kanji.character, level: kanji.level, meaning: kanji.meaning, isLocked: !hasPremium && index >= 25)
+        }
+
+        // Load N2 kanji
+        let n2Array = database.allKanji.filter { $0.level == .n2 }
+        n2Kanji = n2Array.enumerated().map { index, kanji in
+            KanjiItem(character: kanji.character, level: kanji.level, meaning: kanji.meaning, isLocked: !hasPremium && index >= 25)
+        }
+
+        // Load N1 kanji
+        let n1Array = database.allKanji.filter { $0.level == .n1 }
+        n1Kanji = n1Array.enumerated().map { index, kanji in
+            KanjiItem(character: kanji.character, level: kanji.level, meaning: kanji.meaning, isLocked: !hasPremium && index >= 25)
+        }
+
+        // Initialize filtered arrays
+        updateFilteredKanji()
+    }
+
+    private func handleKanjiTap(character: String) {
+        selectedKanji = KanjiDatabase.shared.getKanji(character: character)
+    }
+}
+
+struct KanjiTileView: View {
+    let character: String
+    let isDarkMode: Bool
+    let isLocked: Bool
+    var isRegularWidth: Bool = false
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isLocked ? (isDarkMode ? Color.gray.opacity(0.3) : Color.gray.opacity(0.2)) : Color.woodTile)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.3), radius: 2, x: 0, y: 2)
+
+            Text(character)
+                .font(.system(size: isRegularWidth ? 36 : 28, weight: .medium))
+                .foregroundColor(isLocked ? (isDarkMode ? Color.gray.opacity(0.5) : Color.gray.opacity(0.6)) : .white)
+
+            // Lock icon in top-left corner
+            if isLocked {
+                VStack {
+                    HStack {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: isRegularWidth ? 12 : 10))
+                            .foregroundColor(isDarkMode ? Color.gray.opacity(0.7) : Color.gray.opacity(0.8))
+                            .padding(4)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+struct JPLTSectionView: View {
+    let title: String
+    let kanji: [KanjiItem]
+    let isDarkMode: Bool
+    var isRegularWidth: Bool = false
+    let onKanjiTap: (String) -> Void
+
+    private var gridColumns: [GridItem] {
+        let count = isRegularWidth ? 8 : 5
+        return Array(repeating: GridItem(.flexible(), spacing: 12), count: count)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.primaryRed)
+                    .frame(width: 4, height: 20)
+
+                Text(title)
+                    .font(.system(size: isRegularWidth ? 18 : 16, weight: .bold))
+                    .foregroundColor(isDarkMode ? .white : Color.backgroundDark)
+            }
+
+            LazyVGrid(columns: gridColumns, spacing: 12) {
+                ForEach(kanji) { item in
+                    Button(action: {
+                        if !item.isLocked {
+                            onKanjiTap(item.character)
+                        }
+                    }) {
+                        KanjiTileView(character: item.character, isDarkMode: isDarkMode, isLocked: item.isLocked, isRegularWidth: isRegularWidth)
+                    }
+                    .disabled(item.isLocked)
+                }
+            }
+        }
+    }
+}
+
+#Preview {
+    KanjiGridView(currentView: .constant("review"))
+        .environmentObject(AppSettings.shared)
+}

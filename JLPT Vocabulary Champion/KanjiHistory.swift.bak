@@ -1,0 +1,74 @@
+//
+//  KanjiHistory.swift
+//  Kanji Champion
+//
+
+import Foundation
+
+struct KanjiStats: Codable {
+    var meaningCorrect: Int = 0
+    var meaningTotal: Int = 0
+    var onyomiCorrect: Int = 0
+    var onyomiTotal: Int = 0
+    var kunyomiCorrect: Int = 0
+    var kunyomiTotal: Int = 0
+}
+
+class KanjiHistoryManager: ObservableObject {
+    static let shared = KanjiHistoryManager()
+
+    @Published private var history: [String: KanjiStats] = [:]
+
+    private let userDefaultsKey = "kanjiHistory"
+
+    init() {
+        loadHistory()
+    }
+
+    func getStats(for character: String) -> KanjiStats {
+        return history[character] ?? KanjiStats()
+    }
+
+    func recordAnswer(character: String, quizType: QuizType, isCorrect: Bool) {
+        var stats = history[character] ?? KanjiStats()
+
+        switch quizType {
+        case .meaning:
+            stats.meaningTotal += 1
+            if isCorrect {
+                stats.meaningCorrect += 1
+            }
+        case .onyomi:
+            stats.onyomiTotal += 1
+            if isCorrect {
+                stats.onyomiCorrect += 1
+            }
+        case .kunyomi:
+            stats.kunyomiTotal += 1
+            if isCorrect {
+                stats.kunyomiCorrect += 1
+            }
+        }
+
+        history[character] = stats
+        saveHistory()
+    }
+
+    private func saveHistory() {
+        if let encoded = try? JSONEncoder().encode(history) {
+            UserDefaults.standard.set(encoded, forKey: userDefaultsKey)
+        }
+    }
+
+    private func loadHistory() {
+        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+           let decoded = try? JSONDecoder().decode([String: KanjiStats].self, from: data) {
+            history = decoded
+        }
+    }
+
+    func clearAllHistory() {
+        history.removeAll()
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+    }
+}

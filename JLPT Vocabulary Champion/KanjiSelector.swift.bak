@@ -1,0 +1,152 @@
+//
+//  KanjiSelector.swift
+//  Kanji Champion
+//
+
+import Foundation
+
+struct KanjiQuizItem: Equatable {
+    let kanji: KanjiCharacter
+    let quizType: QuizType
+
+    static func == (lhs: KanjiQuizItem, rhs: KanjiQuizItem) -> Bool {
+        return lhs.kanji.character == rhs.kanji.character && lhs.quizType == rhs.quizType
+    }
+}
+
+class KanjiSelector {
+    private var recentItems: [KanjiQuizItem] = []
+    private let maxRecentItems = 20
+    private let historyManager = KanjiHistoryManager.shared
+
+    func selectNext(
+        from kanjiList: [KanjiCharacter],
+        quizTypes: Set<QuizType>,
+        mode: PracticeMode
+    ) -> KanjiQuizItem? {
+        // Create all possible combinations of kanji and quiz types
+        var allPossibleItems: [KanjiQuizItem] = []
+        for kanji in kanjiList {
+            for quizType in quizTypes {
+                allPossibleItems.append(KanjiQuizItem(kanji: kanji, quizType: quizType))
+            }
+        }
+
+        // Filter out items shown in last 20
+        let availableItems = allPossibleItems.filter { item in
+            !recentItems.contains(item)
+        }
+
+        // If all items have been shown recently, clear the recent list
+        guard !availableItems.isEmpty else {
+            recentItems.removeAll()
+            return selectNext(from: kanjiList, quizTypes: quizTypes, mode: mode)
+        }
+
+        // Select based on practice mode
+        let selectedItem: KanjiQuizItem?
+        switch mode {
+        case .frequentMistakes:
+            selectedItem = selectFrequentMistakes(from: availableItems)
+        case .variety:
+            selectedItem = selectVariety(from: availableItems)
+        case .randomness:
+            selectedItem = availableItems.randomElement()
+        }
+
+        // Add to recent items
+        if let item = selectedItem {
+            recentItems.append(item)
+            if recentItems.count > maxRecentItems {
+                recentItems.removeFirst()
+            }
+        }
+
+        return selectedItem
+    }
+
+    private func selectFrequentMistakes(from items: [KanjiQuizItem]) -> KanjiQuizItem? {
+        // Priority 1: Never reviewed items
+        let neverReviewed = items.filter { item in
+            let stats = historyManager.getStats(for: item.kanji.character)
+            let total = getTotal(stats: stats, quizType: item.quizType)
+            return total == 0
+        }
+
+        if !neverReviewed.isEmpty {
+            return neverReviewed.randomElement()
+        }
+
+        // Priority 2: Items with lowest accuracy
+        var itemsWithAccuracy: [(item: KanjiQuizItem, accuracy: Double)] = []
+
+        for item in items {
+            let stats = historyManager.getStats(for: item.kanji.character)
+            let correct = getCorrect(stats: stats, quizType: item.quizType)
+            let total = getTotal(stats: stats, quizType: item.quizType)
+
+            if total > 0 {
+                let accuracy = Double(correct) / Double(total)
+                itemsWithAccuracy.append((item: item, accuracy: accuracy))
+            }
+        }
+
+        // Sort by accuracy (lowest first)
+        itemsWithAccuracy.sort { $0.accuracy < $1.accuracy }
+
+        // Get all items with the lowest accuracy (handle ties)
+        if let lowestAccuracy = itemsWithAccuracy.first?.accuracy {
+            let lowestItems = itemsWithAccuracy.filter { $0.accuracy == lowestAccuracy }
+            return lowestItems.randomElement()?.item
+        }
+
+        return items.randomElement()
+    }
+
+    private func selectVariety(from items: [KanjiQuizItem]) -> KanjiQuizItem? {
+        var itemsWithCount: [(item: KanjiQuizItem, count: Int)] = []
+
+        for item in items {
+            let stats = historyManager.getStats(for: item.kanji.character)
+            let total = getTotal(stats: stats, quizType: item.quizType)
+            itemsWithCount.append((item: item, count: total))
+        }
+
+        // Sort by count (lowest first)
+        itemsWithCount.sort { $0.count < $1.count }
+
+        // Get all items with the lowest count (handle ties)
+        if let lowestCount = itemsWithCount.first?.count {
+            let lowestItems = itemsWithCount.filter { $0.count == lowestCount }
+            return lowestItems.randomElement()?.item
+        }
+
+        return items.randomElement()
+    }
+
+    private func getCorrect(stats: KanjiStats, quizType: QuizType) -> Int {
+        switch quizType {
+        case .meaning:
+            return stats.meaningCorrect
+        case .onyomi:
+            return stats.onyomiCorrect
+        case .kunyomi:
+            return stats.kunyomiCorrect
+        }
+    }
+
+    private func getTotal(stats: KanjiStats, quizType: QuizType) -> Int {
+        switch quizType {
+        case .meaning:
+            return stats.meaningTotal
+        case .onyomi:
+            return stats.onyomiTotal
+        case .kunyomi:
+            return stats.kunyomiTotal
+        }
+    }
+
+    func reset() {
+        recentItems.removeAll()
+    }
+}

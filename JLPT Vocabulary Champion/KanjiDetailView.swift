@@ -1,0 +1,187 @@
+//
+//  KanjiDetailView.swift
+//  Kanji Champion
+//
+
+import SwiftUI
+
+struct KanjiDetailView: View {
+    @EnvironmentObject var appSettings: AppSettings
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Binding var currentView: String
+    let kanji: KanjiCharacter
+    @Binding var selectedKanji: KanjiCharacter?
+    @StateObject private var historyManager = KanjiHistoryManager.shared
+
+    private var isRegularWidth: Bool {
+        horizontalSizeClass == .regular
+    }
+
+    var stats: KanjiStats {
+        historyManager.getStats(for: kanji.character)
+    }
+
+    var body: some View {
+        ZStack {
+            (appSettings.isDarkMode ? Color.backgroundDark : Color.backgroundLight)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Header
+                        HStack {
+                            Button(action: {
+                                selectedKanji = nil
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.system(size: isRegularWidth ? 20 : 16, weight: .medium))
+
+                                    Text("Back")
+                                        .font(.system(size: isRegularWidth ? 20 : 17))
+                                }
+                                .foregroundColor(Color.primaryGold)
+                            }
+
+                            Spacer()
+
+                            Text("Kanji Detail")
+                                .font(.system(size: isRegularWidth ? 22 : 18, weight: .bold))
+                                .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
+
+                            Spacer()
+
+                            Color.clear.frame(width: isRegularWidth ? 90 : 70)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 20)
+
+                    VStack(spacing: 24) {
+                        // Large Kanji Display
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.primaryGold)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.white.opacity(0.1), lineWidth: 2)
+                                )
+                                .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 4)
+
+                            Text(kanji.character)
+                                .font(.system(size: isRegularWidth ? 180 : 120, weight: .heavy))
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: isRegularWidth ? 320 : 200, height: isRegularWidth ? 320 : 200)
+                        .padding(.top, 20)
+
+                        // JLPT Level Badge
+                        HStack {
+                            Capsule()
+                                .fill(Color.primaryGold)
+                                .frame(width: 4, height: isRegularWidth ? 20 : 16)
+
+                            Text("JLPT \(kanji.level.uppercased())")
+                                .font(.system(size: isRegularWidth ? 18 : 14, weight: .bold))
+                                .tracking(1.5)
+                                .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
+                        }
+
+                        // Information Cards
+                        VStack(spacing: isRegularWidth ? 20 : 16) {
+                            // Meaning
+                            InfoCard(
+                                title: "MEANING",
+                                content: kanji.meaning,
+                                correct: stats.meaningCorrect,
+                                total: stats.meaningTotal,
+                                isDarkMode: appSettings.isDarkMode,
+                                isRegularWidth: isRegularWidth
+                            )
+
+                            // Reading (combined onyomi/kunyomi)
+                            let reading = kanji.onyomi.isEmpty ? kanji.kunyomi : kanji.onyomi
+                            InfoCard(
+                                title: "READING",
+                                content: reading.isEmpty ? "—" : appSettings.toRomaji(reading),
+                                correct: stats.readingCorrect,
+                                total: stats.readingTotal,
+                                isDarkMode: appSettings.isDarkMode,
+                                isRegularWidth: isRegularWidth
+                            )
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(maxWidth: isRegularWidth ? 560 : .infinity)
+                    }
+                    .padding(.bottom, 40)
+                    .frame(maxWidth: .infinity)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct InfoCard: View {
+    let title: String
+    let content: String
+    let correct: Int
+    let total: Int
+    let isDarkMode: Bool
+    var isRegularWidth: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: isRegularWidth ? 14 : 12) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.primaryGold)
+                    .frame(width: 4, height: isRegularWidth ? 20 : 16)
+
+                Text(title)
+                    .font(.system(size: isRegularWidth ? 14 : 12, weight: .bold))
+                    .tracking(2)
+                    .foregroundColor(isDarkMode ? Color.white.opacity(0.7) : Color.gray)
+
+                Spacer()
+
+                if total > 0 {
+                    Text("\(correct)/\(total)")
+                        .font(.system(size: isRegularWidth ? 14 : 12, weight: .bold))
+                        .foregroundColor(Color.primaryGold)
+                }
+            }
+
+            Text(content)
+                .font(.system(size: isRegularWidth ? 24 : 20, weight: .semibold))
+                .foregroundColor(isDarkMode ? .white : Color.backgroundDark)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, isRegularWidth ? 20 : 16)
+                .padding(.vertical, isRegularWidth ? 20 : 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isDarkMode ? Color.secondaryBrownDark.opacity(0.3) : Color.gray.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.secondaryBrown.opacity(0.2), lineWidth: 1)
+                        )
+                )
+        }
+    }
+}
+
+#Preview {
+    KanjiDetailView(
+        currentView: .constant("detail"),
+        kanji: KanjiCharacter(
+            character: "道",
+            meaning: "Road/Way",
+            onyomi: "ドウ",
+            kunyomi: "みち",
+            level: "n5",
+            noJlptIndicated: false
+        ),
+        selectedKanji: .constant(nil)
+    )
+    .environmentObject(AppSettings.shared)
+}
