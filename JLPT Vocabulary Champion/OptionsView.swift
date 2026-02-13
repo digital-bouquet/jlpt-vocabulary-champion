@@ -352,6 +352,13 @@ struct OptionsView: View {
                                     Toggle("", isOn: $appSettings.hasActivePremium)
                                         .labelsHidden()
                                         .tint(.orange)
+                                        .onChange(of: appSettings.hasActivePremium) { _, newValue in
+                                            if newValue {
+                                                PaywallManager.shared.unlockPremium()
+                                            } else {
+                                                PaywallManager.shared.lockPremium()
+                                            }
+                                        }
                                 }
                                 .padding(14)
                             }

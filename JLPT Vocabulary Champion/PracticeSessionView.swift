@@ -30,7 +30,6 @@ struct PracticeSessionView: View {
     @State private var vocabularyWords: [VocabularyWord] = []
     @State private var shadowSize: CGFloat = 200
     @State private var wordDisplaySize: CGFloat = 120
-    @State private var wordBottomPadding: CGFloat = 8
 
     init(currentView: Binding<String>, settings: PracticeSettings) {
         self._currentView = currentView
@@ -83,40 +82,43 @@ struct PracticeSessionView: View {
                 .padding(.top, max(12, geometry.size.height * 0.018))
                 .padding(.bottom, max(12, geometry.size.height * 0.018))
 
-                Spacer()
-                    .frame(height: geometry.size.height * 0.06)
+                // Word display area - fixed height so answer grid stays in place
+                VStack(spacing: 0) {
+                    Spacer()
 
-                // Word Display - Matching Kanji Champion shadow effect
-                ZStack {
-                    // Shadow layer - larger grey text behind main text
-                    Text(currentWord?.word ?? "")
-                        .font(.system(size: shadowSize, weight: .bold))
-                        .foregroundColor(Color(white: appSettings.isDarkMode ? 0.3 : 0.6))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.1)
+                    // Word Display - Matching Kanji Champion shadow effect
+                    ZStack {
+                        // Echo/shadow layer - larger, faded behind main text
+                        Text(currentWord?.word ?? "")
+                            .font(.system(size: shadowSize, weight: .bold))
+                            .foregroundColor((appSettings.isDarkMode ? Color.white : Color.backgroundDark).opacity(0.05))
 
-                    // Main text layer
-                    Text(currentWord?.word ?? "")
-                        .font(.system(size: wordDisplaySize, weight: .heavy))
-                        .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.1)
-                        .onAppear {
-                            updateWordSize(for: currentWord?.word ?? "", in: geometry.size.width)
-                        }
-                        .onChange(of: currentWord?.word ?? "") { _, _ in
-                            updateWordSize(for: currentWord?.word ?? "", in: geometry.size.width)
-                        }
+                        // Main text layer
+                        Text(currentWord?.word ?? "")
+                            .font(.system(size: wordDisplaySize, weight: .heavy))
+                            .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.1)
+                            .shadow(color: Color.primaryGold.opacity(0.15), radius: 40)
+                            .onAppear {
+                                updateWordSize(for: currentWord?.word ?? "", in: geometry.size.width, height: geometry.size.height)
+                            }
+                            .onChange(of: currentWord?.word ?? "") { _, _ in
+                                updateWordSize(for: currentWord?.word ?? "", in: geometry.size.width, height: geometry.size.height)
+                            }
+                    }
+
+                    Spacer()
+
+                    // Gold divider line
+                    HStack(spacing: 0) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.primaryGold.opacity(0.3))
+                            .frame(width: 48, height: 4)
+                    }
+                    .padding(.bottom, max(16, geometry.size.height * 0.024))
                 }
-                .padding(.bottom, wordBottomPadding)
-
-                // Gold divider line
-                HStack(spacing: 0) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.primaryGold.opacity(0.3))
-                        .frame(width: 48, height: 4)
-                }
-                .padding(.bottom, max(16, geometry.size.height * 0.024))
+                .frame(height: geometry.size.height * 0.30)
 
                 // Answer Grid - Square buttons matching Kanji Champion
                 LazyVGrid(
@@ -180,7 +182,8 @@ struct PracticeSessionView: View {
                                         .font(.system(size: isRegularWidth ? 26 : 20, weight: .bold))
                                         .foregroundColor(.white)
                                         .multilineTextAlignment(.center)
-                                        .frame(maxWidth: .infinity)
+                                        .minimumScaleFactor(0.5)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 12)
 
@@ -290,6 +293,9 @@ struct PracticeSessionView: View {
     }
 
     private func loadNextQuestion() {
+        // Pick quiz type from selected types each question
+        questionType = settings.selectedQuizTypes.randomElement() ?? .meaning
+
         // Get available words based on quiz type
         let availableWords: [VocabularyWord]
 
@@ -301,14 +307,13 @@ struct PracticeSessionView: View {
         }
 
         guard !availableWords.isEmpty else {
-            // If no words available for reading quiz, switch to meaning quiz
+            // If no words available for reading quiz, fall back to meaning
             if questionType == .reading {
                 questionType = .meaning
                 loadNextQuestion()
                 return
             }
             currentWord = vocabularyWords.first
-            questionType = settings.selectedQuizTypes.randomElement() ?? .meaning
             generateAnswers()
             return
         }
@@ -331,27 +336,35 @@ struct PracticeSessionView: View {
         }
     }
 
-    private func updateWordSize(for word: String, in maxWidth: CGFloat) {
-        let charCount = word.count
-        // Increased base size for vocabulary words (larger than Kanji Champion to compensate for multi-char)
-        let baseSize: CGFloat = isRegularWidth ? 200 : 160
+    private func truncateMeaning(_ meaning: String, maxLength: Int = 35) -> String {
+        guard meaning.count > maxLength else { return meaning }
+        let truncated = meaning.prefix(maxLength)
+        // Break at last space to avoid cutting mid-word
+        if let lastSpace = truncated.lastIndex(of: " ") {
+            return String(truncated[truncated.startIndex..<lastSpace]) + "…"
+        }
+        return String(truncated) + "…"
+    }
 
-        // Scale down for longer words
-        if charCount <= 2 {
-            wordDisplaySize = baseSize
+    private func updateWordSize(for word: String, in maxWidth: CGFloat, height: CGFloat) {
+        let charCount = word.count
+
+        // Scale based on character count, using Kanji Champion's min(fixed, geometry) pattern
+        if charCount <= 1 {
+            // Single character — match Kanji Champion exactly
+            wordDisplaySize = min(isRegularWidth ? 160 : 120, height * (isRegularWidth ? 0.18 : 0.135))
+        } else if charCount <= 2 {
+            wordDisplaySize = min(isRegularWidth ? 140 : 100, height * (isRegularWidth ? 0.16 : 0.12))
         } else if charCount <= 4 {
-            wordDisplaySize = baseSize * 0.8
+            wordDisplaySize = min(isRegularWidth ? 110 : 80, height * (isRegularWidth ? 0.13 : 0.10))
         } else if charCount <= 6 {
-            wordDisplaySize = baseSize * 0.65
+            wordDisplaySize = min(isRegularWidth ? 85 : 60, height * (isRegularWidth ? 0.10 : 0.08))
         } else {
-            wordDisplaySize = baseSize * 0.5
+            wordDisplaySize = min(isRegularWidth ? 70 : 48, height * (isRegularWidth ? 0.08 : 0.06))
         }
 
         // Shadow at 1.5x (matching Kanji Champion ratio)
         shadowSize = wordDisplaySize * 1.5
-
-        // Bottom padding for space above divider
-        wordBottomPadding = 8
     }
 
     private func generateAnswers() {
@@ -362,13 +375,14 @@ struct PracticeSessionView: View {
 
         switch questionType {
         case .meaning:
-            // Get first meaning (before semicolon) as correct answer
-            let firstMeaning = word.meaning.components(separatedBy: ";").first?.trimmingCharacters(in: .whitespaces) ?? word.meaning
-            correctAnswer = firstMeaning
+            // Pick one random meaning from the first 3 (semicolon-separated)
+            let meanings = word.meaning.components(separatedBy: ";").prefix(3).map { $0.trimmingCharacters(in: .whitespaces) }
+            correctAnswer = truncateMeaning(meanings.randomElement() ?? word.meaning)
 
-            // Get first meaning from all words as options
+            // Pick one random meaning from the first 3 for each option
             allOptions = vocabularyWords.compactMap { w in
-                w.meaning.components(separatedBy: ";").first?.trimmingCharacters(in: .whitespaces)
+                let m = w.meaning.components(separatedBy: ";").prefix(3).map { $0.trimmingCharacters(in: .whitespaces) }
+                return truncateMeaning(m.randomElement() ?? "")
             }
         case .reading:
             correctAnswer = word.reading

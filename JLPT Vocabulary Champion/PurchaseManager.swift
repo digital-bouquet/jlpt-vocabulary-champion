@@ -92,9 +92,12 @@ class PurchaseManager: ObservableObject {
 
         hasActivePremium = hasPurchased
 
-        // Sync with AppSettings
+        // Sync with AppSettings and PaywallManager
         await MainActor.run {
             AppSettings.shared.hasActivePremium = hasPurchased
+            if hasPurchased {
+                PaywallManager.shared.unlockPremium()
+            }
         }
     }
 

@@ -41,6 +41,11 @@ class PaywallManager: ObservableObject {
         UserDefaults.standard.set(true, forKey: "hasPremium")
     }
 
+    func lockPremium() {
+        hasPremium = false
+        UserDefaults.standard.set(false, forKey: "hasPremium")
+    }
+
     func canViewWord(at index: Int, in level: JLPTLevel) -> Bool {
         if hasPremium {
             return true

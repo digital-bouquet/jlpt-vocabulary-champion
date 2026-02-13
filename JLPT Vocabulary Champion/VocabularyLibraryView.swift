@@ -271,10 +271,11 @@ struct VocabularyWordRow: View {
 
                 Spacer()
 
-                Text(word.meaning)
+                Text(word.meaning.components(separatedBy: ";").prefix(3).map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: "\n"))
                     .font(.system(size: isRegularWidth ? 14 : 12))
                     .foregroundColor(isDarkMode ? .white.opacity(0.6) : Color.gray)
                     .multilineTextAlignment(.trailing)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: isRegularWidth ? 200 : 120, alignment: .trailing)
 
                 Image(systemName: "chevron.right")
