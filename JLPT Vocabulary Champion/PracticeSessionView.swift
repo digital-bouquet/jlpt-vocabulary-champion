@@ -30,6 +30,7 @@ struct PracticeSessionView: View {
     @State private var vocabularyWords: [VocabularyWord] = []
     @State private var shadowSize: CGFloat = 200
     @State private var wordDisplaySize: CGFloat = 120
+    @State private var wordBottomPadding: CGFloat = 8
 
     init(currentView: Binding<String>, settings: PracticeSettings) {
         self._currentView = currentView
@@ -59,10 +60,10 @@ struct PracticeSessionView: View {
                     }) {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: isRegularWidth ? 20 : 16, weight: .medium))
+                                .font(.system(size: isRegularWidth ? 22 : 18, weight: .medium))
 
                             Text("Back")
-                                .font(.system(size: isRegularWidth ? 20 : 17))
+                                .font(.system(size: isRegularWidth ? 22 : 18))
                         }
                         .foregroundColor(Color.primaryGold)
                     }
@@ -70,7 +71,7 @@ struct PracticeSessionView: View {
                     Spacer()
 
                     Text("Practice")
-                        .font(.system(size: isRegularWidth ? 22 : 18, weight: .bold))
+                        .font(.system(size: isRegularWidth ? 24 : 20, weight: .bold))
                         .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
 
                     Spacer()
@@ -79,26 +80,25 @@ struct PracticeSessionView: View {
                         .frame(width: isRegularWidth ? 90 : 70)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 20)
+                .padding(.top, max(12, geometry.size.height * 0.018))
+                .padding(.bottom, max(12, geometry.size.height * 0.018))
 
                 Spacer()
                     .frame(height: geometry.size.height * 0.06)
 
-                // Word Display - Centered with visible shadow effect
+                // Word Display - Matching Kanji Champion shadow effect
                 ZStack {
-                    // Shadow layer - LARGER and more visible
+                    // Shadow layer - larger grey text behind main text
                     Text(currentWord?.word ?? "")
                         .font(.system(size: shadowSize, weight: .bold))
-                        .foregroundColor((appSettings.isDarkMode ? Color.white : Color.backgroundDark).opacity(0.12))
+                        .foregroundColor(Color(white: appSettings.isDarkMode ? 0.3 : 0.6))
                         .lineLimit(1)
                         .minimumScaleFactor(0.1)
 
-                    // Main text layer - SMALLER centered
+                    // Main text layer
                     Text(currentWord?.word ?? "")
                         .font(.system(size: wordDisplaySize, weight: .heavy))
                         .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
-                        .shadow(color: Color.primaryGold.opacity(0.15), radius: 40)
                         .lineLimit(1)
                         .minimumScaleFactor(0.1)
                         .onAppear {
@@ -108,7 +108,7 @@ struct PracticeSessionView: View {
                             updateWordSize(for: currentWord?.word ?? "", in: geometry.size.width)
                         }
                 }
-                .padding(.bottom, 8)
+                .padding(.bottom, wordBottomPadding)
 
                 // Gold divider line
                 HStack(spacing: 0) {
@@ -177,7 +177,7 @@ struct PracticeSessionView: View {
 
                                 ZStack {
                                     Text(answer.text)
-                                        .font(.system(size: isRegularWidth ? 22 : 18, weight: .bold))
+                                        .font(.system(size: isRegularWidth ? 26 : 20, weight: .bold))
                                         .foregroundColor(.white)
                                         .multilineTextAlignment(.center)
                                         .frame(maxWidth: .infinity)
@@ -333,23 +333,25 @@ struct PracticeSessionView: View {
 
     private func updateWordSize(for word: String, in maxWidth: CGFloat) {
         let charCount = word.count
-        let baseSize: CGFloat = isRegularWidth ? 120 : 90
-        let shadowBase: CGFloat = isRegularWidth ? 200 : 150
+        // Increased base size for vocabulary words (larger than Kanji Champion to compensate for multi-char)
+        let baseSize: CGFloat = isRegularWidth ? 200 : 160
 
-        // Reduce font size for longer words to prevent truncation
+        // Scale down for longer words
         if charCount <= 2 {
             wordDisplaySize = baseSize
-            shadowSize = shadowBase
         } else if charCount <= 4 {
-            wordDisplaySize = baseSize * 0.75
-            shadowSize = shadowBase * 0.9
+            wordDisplaySize = baseSize * 0.8
         } else if charCount <= 6 {
-            wordDisplaySize = baseSize * 0.6
-            shadowSize = shadowBase * 0.8
+            wordDisplaySize = baseSize * 0.65
         } else {
             wordDisplaySize = baseSize * 0.5
-            shadowSize = shadowBase * 0.7
         }
+
+        // Shadow at 1.5x (matching Kanji Champion ratio)
+        shadowSize = wordDisplaySize * 1.5
+
+        // Bottom padding for space above divider
+        wordBottomPadding = 8
     }
 
     private func generateAnswers() {
