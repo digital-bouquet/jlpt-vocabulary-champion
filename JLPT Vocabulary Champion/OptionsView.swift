@@ -9,6 +9,7 @@ struct OptionsView: View {
     @EnvironmentObject var appSettings: AppSettings
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @StateObject private var purchaseManager = PurchaseManager.shared
+    @StateObject private var historyManager = KanjiHistoryManager.shared
     @Binding var currentView: String
 
     private var isRegularWidth: Bool {
@@ -202,7 +203,7 @@ struct OptionsView: View {
 
                                     Spacer()
 
-                                    Text("0")
+                                    Text("\(historyManager.totalWordsPracticed)")
                                         .font(.system(size: isRegularWidth ? 17 : 15, weight: .medium))
                                         .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
                                 }
@@ -218,7 +219,7 @@ struct OptionsView: View {
 
                                     Spacer()
 
-                                    Text("0")
+                                    Text("\(historyManager.totalAttempts)")
                                         .font(.system(size: isRegularWidth ? 17 : 15, weight: .medium))
                                         .foregroundColor(appSettings.isDarkMode ? .white : Color.backgroundDark)
                                 }
@@ -229,7 +230,7 @@ struct OptionsView: View {
                                     .fill(appSettings.isDarkMode ? Color.secondaryBrownDark.opacity(0.2) : Color.gray.opacity(0.1))
                             )
 
-                            Button(action: {}) {
+                            Button(action: { historyManager.clearAllHistory() }) {
                                 Text("Clear All Data")
                                     .font(.system(size: isRegularWidth ? 17 : 15, weight: .bold))
                                     .foregroundColor(Color.white)

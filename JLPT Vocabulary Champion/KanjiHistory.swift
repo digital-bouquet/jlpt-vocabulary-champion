@@ -64,4 +64,12 @@ class KanjiHistoryManager: ObservableObject {
         history.removeAll()
         UserDefaults.standard.removeObject(forKey: userDefaultsKey)
     }
+
+    var totalWordsPracticed: Int {
+        return history.filter { $0.value.meaningTotal > 0 || $0.value.readingTotal > 0 }.count
+    }
+
+    var totalAttempts: Int {
+        return history.values.reduce(0) { $0 + $1.meaningTotal + $1.readingTotal }
+    }
 }

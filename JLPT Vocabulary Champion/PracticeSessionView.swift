@@ -142,6 +142,15 @@ struct PracticeSessionView: View {
                                     SoundManager.shared.playIncorrect()
                                 }
 
+                                // Record the answer in history
+                                if let word = currentWord {
+                                    KanjiHistoryManager.shared.recordAnswer(
+                                        character: word.word,
+                                        quizType: questionType,
+                                        isCorrect: answer.isCorrect
+                                    )
+                                }
+
                                 // Progress to next question after 1 second
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                     nextQuestion()
